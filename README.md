@@ -1,5 +1,5 @@
-# pathway_for_DS
-These are my traces for being a Data Scientist✨
+
+### These are my traces for being a Data Scientist✨
 
 - 👋 Hi, I’m Mihyeon.
 - 👀 I’m interested in data science, English and self development.

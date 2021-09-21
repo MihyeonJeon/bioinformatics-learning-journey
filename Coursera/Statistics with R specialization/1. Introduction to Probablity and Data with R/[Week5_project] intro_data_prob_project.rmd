@@ -1,0 +1,202 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+- Following the document on the BRFSS website and description, the survey accessed to the respondets with two ways, landline telephone and cellular phone call. 
+- Home telephone numbers are obtained through random-digit dialing. In terms of sampling, disproportionate strattified random sampling was applied. There are also standard for an eligible adult and if there are right respondents in each household, an adult was randomly selected. When it comes to cellular telephone sampling, the numbers were also randomly generated and randomly selected.
+- As we can see, the respondents were randomly selected through many steps so it seems the data collection has generalizability. However, some part of this data was gained from adults who got the cellular phone and they participated(no random sampling). Owning personal celllular phone or landline telephone itself can make the respondents lose randomness. So it is hard to say there is generalizability. In this collection, the answers from randomly selected people were only "observed". Therefore, it is also hard to say this data has causality as there was no experiments.
+
+* * *
+
+## Part 2: Research questions
+
+#### **Research quesion 1: Is there obvious association between age and general health?**
+We know our physical ability is not the same as before as time goes by. Is it fair enough to say it is general?
+
+- The variables of interest :
+  - ctelenum (Correct telephone number?)
+  - _ageg5yr (Reported Age In Five-Year Age Categories Calculated Variable)
+  - genhlth (General Health)
+
+#### **Research quesion 2: When subjects are in same generation and have similar drinks consumption, is there any difference between physically active and inactive people in general health? **
+As one of the drinkers, I enjoy drinking beer and wine! To enjoy more driking occasions as long as I can, I want to stay healthy. I won't be able to find causality between them but is there any relationship? 
+
+- The variables of interest :
+  - _pacat1 (Physical Activity Categories)
+  - _ageg5yr (Reported Age In Five-Year Age Categories Calculated Variable)
+  - _drnkdy4(Computed Number Of Drinks Of Alcohol Beverages Per Day)
+
+#### **Research quesion 3: Does income level have lingkage with satisfaction of life? **
+We want more money and greed has no limits. If you earn more money, would you feel more satisfied with your life? I can't generalize it as it is limited data but I would like to find out whether there is difference.
+
+- The variables of interest : 
+  - income2 (Income Level)
+  - lsatisfy(Satisfaction With Life)
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research quesion 1: Is there obvious association between age and general health? **
+
+```{r}
+
+# I need three columns, ctelenum (Correct telephone number?), X_ageg5yr (Reported Age In Five-Year Age Categories Calculated Variable), and genhlth (General Health).
+
+brfss2013 %>% group_by(ctelenum) %>% summarise(count=n())
+brfss2013 %>% group_by(X_ageg5yr) %>% summarise(count=n())
+brfss2013 %>% group_by(genhlth) %>% summarise(count=n())
+
+#It seems there are some unusable data. I would like to take correct phone number data and age over 18 years old. 
+#The values for 'General Health' should be available as well.
+
+brfss2013 %>% filter(!is.na(ctelenum), !is.na(X_ageg5yr), !is.na(genhlth)) %>% 
+  group_by(X_ageg5yr, genhlth) %>% summarise(count=n())
+brfss2013_r1 <- brfss2013 %>% filter(!is.na(ctelenum), !is.na(X_ageg5yr), !is.na(genhlth)) %>% 
+  group_by(X_ageg5yr, genhlth) %>% select(X_ageg5yr, genhlth)
+
+
+
+```
+
+```{r out.width = "150%"}
+ggplot(brfss2013_r1, aes(X_ageg5yr, fill = genhlth), fig.width = 20)  + geom_bar(position = "stack") + ggtitle("Barplot : Age and General health") + theme(axis.text.x = element_text(size= 6)) + aes(stringr::str_wrap(X_ageg5yr, 5)) + labs(y= "count", x = "Age", fill = "General Health")
+```
+
+- The generation from 50 to 70 years old takes biggest part in this dataset. Most people feel pretty good about their general health. But we can say it could be general that the older people are, the ratio of feeling good is getting less and feel poorer compared to being younger.
+
+**Research quesion 2:  When subjects are in same generation and have similar drinks consumption, is there any difference between physically active and inactive people in general health?  **
+
+```{r}
+
+# Let's see how physical activity is categorized and summarize it.
+
+brfss2013 %>% group_by(X_pacat1) %>% summarise(count=n())
+
+# Mutate physical activity into 2 types, active and inactive.
+
+brfss2013_r2 <- brfss2013 %>% filter(!is.na(X_pacat1)) %>% 
+  mutate(physical_activity = ifelse(X_pacat1 == 'Highly active',"Active",
+                                    ifelse(X_pacat1 == 'Active',"Active",
+                                           ifelse(X_pacat1 == 'Insufficiently active',"Inactive",
+                                                  ifelse(X_pacat1 == 'Inactive',"Inactive",'')))))
+brfss2013_r2 %>% group_by(physical_activity) %>% summarise(count=n())
+
+# What about age distribution?
+
+brfss2013 %>% group_by(X_ageg5yr) %>% summarise(count=n())
+
+# I would like to transform the age unit into generation.
+
+brfss2013_r2 <- brfss2013_r2 %>% filter(!is.na(X_ageg5yr)) %>% 
+  mutate(age = ifelse(X_ageg5yr == 'Age 18 to 24',"20's",
+                                    ifelse(X_ageg5yr == 'Age 25 to 29',"20's",
+                                           ifelse(X_ageg5yr == 'Age 30 to 34',"30's",
+                                                  ifelse(X_ageg5yr == 'Age 35 to 39',"30's",
+                                                         ifelse(X_ageg5yr == 'Age 40 to 44',"40's",
+                                                                ifelse(X_ageg5yr == 'Age 45 to 49',"40's",
+                                                                       ifelse(X_ageg5yr == 'Age 50 to 54',"50's",
+                                                                              ifelse(X_ageg5yr == 'Age 55 to 59',"50's",
+                                                                                     "60's or older")))))))))
+
+
+brfss2013_r2 %>% group_by(age) %>% summarise(count=n())
+
+                                                           
+# Mutate Computed Number Of Drinks Of Alcohol Beverages Per Day into drinker level.
+# I set the drinker level with non-drinker, light (less than 5 drinks) , middle (less than 10 drinks) and heavy drinker (more than 10).
+
+brfss2013_r2 <- brfss2013_r2 %>% filter(!is.na(X_drnkdy4)) %>% 
+  mutate(alcohol_consumption = ifelse(X_drnkdy4 == 0,"Non",
+                                    ifelse(X_drnkdy4 <= 5,"Light",
+                                           ifelse(X_drnkdy4 <= 10,"Middle",
+                                                  ifelse(X_drnkdy4 >10,"Heavy",'')))))
+
+brfss2013_r2 %>% group_by(alcohol_consumption) %>% summarise(count=n())
+
+# 2 implied decimal places should be applied to bmi values.
+
+brfss2013_r2 <- brfss2013_r2 %>% mutate(bmi_value = X_bmi5*0.01) %>%
+  mutate(bmi = ifelse(bmi_value < 100, bmi_value, NA)) %>% filter(!is.na(bmi))
+
+# Check it how the dataset can be summarized with physically active people.     
+
+brfss2013_r2 %>% group_by(physical_activity, age, alcohol_consumption) %>%
+  summarise(count=n(), mean_bmi = mean(bmi)) %>% filter(physical_activity == 'Active')
+
+brfss2013_r2 <- brfss2013_r2 %>% group_by(physical_activity, age, alcohol_consumption) %>%
+  summarise(count=n(), mean_bmi = mean(bmi)) %>% mutate(age_drink_type = paste(age,alcohol_consumption)) %>%
+  select(physical_activity, age_drink_type, mean_bmi)
+
+
+brfss2013_r2
+```
+
+```{r out.width = "170%"}
+
+ggplot(brfss2013_r2, aes(x = age_drink_type, y = mean_bmi, fill = physical_activity)) + geom_bar(stat = 'identity', position = 'dodge',width = 0.8) + theme(axis.text.x = element_text(size= 6)) + aes(stringr::str_wrap(age_drink_type, 5)) + labs(x = 'age and drink type', y = 'mean BMI')
+
+
+```
+
+- Overall, BMI level is lower in all generation when people are physically active compared when peoplare are not. The difference of BMI between active and inactive people are not that great in younger generation such as less then 40's regardless drink type. But after 30's the difference seems slightly bigger. As we know, people with higher BMI are likely to have obesity. Regardless of drink type, people have lower BMI when they do workout.
+
+**Research quesion 3:  Does income level affect to satisfaction of life?**
+
+```{r}
+
+# Let's see how the values are distributed.
+
+brfss2013 %>% group_by(income2) %>% summarise(count=n())
+brfss2013 %>% group_by(lsatisfy) %>% summarise(count=n())
+
+# Remove NA values in both columns
+
+brfss2013_r3 <- brfss2013 %>% filter(!is.na(income2)& !is.na(lsatisfy)) %>% select(income2, lsatisfy)
+brfss2013_r3 %>% group_by(income2) %>% summarise(count=n())
+brfss2013_r3 %>% group_by(lsatisfy) %>% summarise(count=n())
+brfss2013_r3 %>% group_by(income2, lsatisfy) %>% summarise(count=n())
+
+```
+
+```{r out.width = "150%"}
+# Make a plot and see the distribution
+
+ggplot(brfss2013_r3, aes(income2))  + geom_bar(aes(fill=lsatisfy), position = 'dodge') + ggtitle("Barplot : Income level and Satisfactioin of life") + theme(axis.text.x = element_text(size= 7)) + aes(stringr::str_wrap(income2, 5)) + labs(y= "count", x = "Income", fill = "Satisfaction level")
+```
+
+- As you can see, the more income people have, they tend to feel very satisfied with their life and feel less dissatisfied. But generally people are satisfied with their life regardless of income level. Although the number of rows in this dataset were deleted becasue of too many NA values, we can still see the increase of 'very satisfied' when people earn more money.

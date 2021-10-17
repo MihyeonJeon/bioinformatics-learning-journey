@@ -1,0 +1,194 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+#### Coursera Week5 Project - Written by Mihyeon Jeon, 2021-10-13
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(tidyverse)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+- Followling the information on guide, the GSS aims to examine American populations "in general". From GSS documentation on the website (Appendix A - Sampling Design and Weighting), they accomplished grouping the US population based on geographic size, location or racial characteristics at the first stage of selection. And then, subpopulations were produced as independent samples.
+
+- According to these, the collection method has generalizability as each individuals were selected for the study and the samples are likely representative of the US population.
+
+- But it doesn't have causality as this survey only observed the respondents not assigning them to specific group.
+
+* * *
+
+## Part 2: Research question
+
+- Question : **Is the income average of people who were borned in the US different with that of people who were not?**
+
+- Background of interest : United States are well known as 'melting pot'. I was wondering if the door is truly opened for anybody regardless of their backgrounds or culture. I assume if someone was not borned in the country and their parents are the same case, they would have different cultural background with American.
+The descrimination has been prevalent everywhere these days and as the one who wants to get a chance to live in different countries, I'm interested in this matter.
+
+- For inference, I'm going to use the variables below.
+
+1. born: Was R born in this country
+2. parborn: Were RS parents born in this country
+3. income06: Total family income
+  - To be precise, the income should be for each individual but it seems there is no proper variable to calculate it. So let me compare family income in general.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+```{r}
+load("gss.Rdata")
+
+
+# Select the target variables and filter NA values.
+gss_data <- gss %>% select(born, parborn, income06, uscitzn)
+gss_data <- gss_data %>% filter(!is.na(born), !is.na(parborn), !is.na(income06))
+head(gss_data)
+
+# Figure out the distribution
+gss_data %>% group_by(born, parborn,uscitzn) %>% summarise(count=n())
+
+# Mutate
+gss_data <- gss_data %>% mutate(born_2 = case_when((born == 'Yes' & str_detect(parborn,'Not')) ~ NA_character_,
+                                                   (born == 'Yes' & str_detect(parborn,'Dk For Both')) ~ NA_character_,
+                                                   (born == 'Yes' & str_detect(parborn,'Neither')) ~ 'No',
+                                                   (born == 'Yes') ~ 'Yes',
+                                                   (born == 'No' & str_detect(parborn,'Not')) ~ NA_character_,
+                                                   (born == 'No' & str_detect(parborn,'Dk For Both')) ~ NA_character_,
+                                                   (born == 'No' & str_detect(parborn,'Both')) ~ 'Yes',
+                                                   (born == 'No') ~ 'No'
+                                                  )
+                                )
+```
+
+* I assume that if both parents were not born in the US but a respondent was born in the US, the respondent might not be truly American based. In contrast, I also assume if both parents were born in the US but a respondent was not born in the us, he/she might be American based.
+* I excepted the case when respondents don't know their parents' base.
+
+```{r}
+
+gss_data <- gss_data %>% filter(!is.na(born_2)) 
+gss_data %>% group_by(born, parborn,born_2) %>% summarise(count=n())
+
+ggplot(data = gss_data, aes(born_2)) + geom_bar(width = 0.5,fill='skyblue') +  
+labs(y= "count", x = "Born in the US")
+
+```
+
+* Definitely the proportion leans to one side.
+* It's time to see the income level. It is categorical variable so I would like to compute it to number. I am going to set it as the median value.
+
+```{r}
+# transform the income level
+gss_data %>% group_by(income06) %>% summarise(count = n())
+
+gss_data <- gss_data %>% mutate(income_2 = case_when(str_detect(income06, 'Under') ~ 1000,
+                                                     str_detect(income06, '1 000') ~ 2000,
+                                                     str_detect(income06, '3 000') ~ 3500,
+                                                     str_detect(income06, '4 000') ~ 4500,
+                                                     str_detect(income06, '5 000') ~ 5500,
+                                                     str_detect(income06, '6 000') ~ 6500,
+                                                     str_detect(income06, '7 000') ~ 7500,
+                                                     str_detect(income06, '8 000') ~ 7500,
+                                                     str_detect(income06, '10000') ~ 11250,
+                                                     str_detect(income06, '12500') ~ 13750,
+                                                     str_detect(income06, '15000') ~ 16250,
+                                                     str_detect(income06, '17500') ~ 18750,
+                                                     str_detect(income06, '20000') ~ 21250,
+                                                     str_detect(income06, '22500') ~ 23750,
+                                                     str_detect(income06, '25000') ~ 27500,
+                                                     str_detect(income06, '30000') ~ 32500,
+                                                     str_detect(income06, '35000') ~ 37500,
+                                                     str_detect(income06, '40000') ~ 45000,
+                                                     str_detect(income06, '50000') ~ 55000,
+                                                     str_detect(income06, '60000') ~ 67500,
+                                                     str_detect(income06, '75000') ~ 82500,
+                                                     str_detect(income06, '90000') ~ 100000,
+                                                     str_detect(income06, '110000') ~ 120000,
+                                                     str_detect(income06, '130000') ~ 140000,
+                                                     str_detect(income06, '150000') ~ 150000)
+                                         
+)
+
+gss_data <- gss_data %>% filter(!is.na(income_2))
+gss_data %>% group_by(income_2) %>% summarise(count=n())
+
+
+```
+
+* Let's visualize how it is distributed
+```{r}
+ggplot(data = gss_data, aes(x = income_2, fill = income_2)) + geom_bar(fill='skyblue') +
+  facet_wrap( ~ born_2) +
+  labs(y= "count", x = "Income")
+```
+
+* The count for variable 'born_2' is biased to 'Yes' as we saw earlier. The distribution seems fairly similar here. Now we need to do inference **if the income average of people who were borned in the US different with that of people who were not.**
+
+* * *
+
+## Part 4: Inference
+
+1. **Hypothesis**
+  * Null hypothesis : $\mu Yes = \mu No$
+  * Alternative hypothesis : $\mu Yes \neq \mu No$
+
+2. **Conditions for inference for comparing two independent means**
+  * Independence
+    - each observation is independent as the survey was done for one adult in each household.
+    - This data is random sample.
+    - The rows of the dataset is much less than 10% of US population.
+  * Sample Size/Skew
+```{r}
+gss_data %>% group_by(born_2) %>% summarise(count=n())
+```
+    
+  - It seems a bit skew to one side but the sample size is limited. Let's assume we have enough sample size.
+    
+
+3. **The method to be used**
+  * Here we would like to compare the income average between people who were born in the US and people who were not.
+  * It means the point estimate is the difference between two sample average.
+  * We don't know the population standard deviation, sigma so we need **t-distribution**.
+
+```{r}
+gss_yes <- gss_data %>% filter(born_2 == 'Yes') %>% select(income_2)
+
+gss_no <-  gss_data %>% filter(born_2 == 'No') %>% select(income_2)
+
+```
+
+* Use t.test()
+```{r}
+t.test(gss_yes, gss_no)
+```
+
+
+* We are 95% confident that those who were born in the US have 1943.868 dollars and 5156.303 dollars higher family income than thouse who were not born in the US, on average.
+
+* p-value is 1.539e-05 which is very low. It menas we would reject the null hypothesis and conclude that these data provide convincing eividence that there is a difference between the average income between two populations.

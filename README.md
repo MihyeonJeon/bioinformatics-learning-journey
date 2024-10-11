@@ -1,10 +1,10 @@
 
-### These are my traces for being a Data Scientist✨
+### Welcome to My Bioinformatics Journey ✨
+#### Introduction
+👋 Hi there! This repository documents my ongoing journey and projects as I delve deeper into bioinformatics.
 
-- 👋 Hi, I’m Mihyeon.
-- 👀 I’m interested in data science, English and self development.
-- 🙋 I'm working as a clinical data engineer in South Korea.
-- 🌱 I’m currently studying programming in Python, mathmatics and statistics.
-- 💞️ I’m preparing myself to be a Data scientist in Life Science area.
-- 📫 How to reach me ? 👉 algus0565@gmail.com
+#### About This Repository
+👀 I'm passionate about leveraging data to uncover biological insights. Here, you'll find various projects where I've honed my skills in data science, statistics, and bioinformatics technologies.
 
+#### Connect With Me
+📫 Interested in collaborating or learning more? Reach out to me at mjeon0562@gmail.com or through Linkedin www.linkedin.com/in/mihyeon-jeon

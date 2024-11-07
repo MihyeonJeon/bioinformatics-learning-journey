@@ -6,6 +6,17 @@ My role was data preprocessing and feature selection based on data analysis.
 This project aims to improve the accuracy of protein-protein interaction (PPI) prediction using a combination of machine learning
  models. Since the dataset had more than a hundred of features, the main focus was on preprocessing with R to ensure data quality and efficiancy in modeling.
 
+ ## Research Question
+- How different/similar will the feature selection between biological  approach and Data Analysis methods be?
+- Can we build a model to predict an interface amino acid in production by combining both methods?
+
+## Data
+Data contains more than 65000 protein sequence with 137 features, including the target variable which indicates the amino acid is interface or not. The features include information about each amino acid such as protein ID from Uniplot, protein length, PSSM matrix scores and hydropathy index.
+
+## The Workflow
+![image](https://github.com/user-attachments/assets/48547f9c-35d4-49ac-8c5e-2a4a2cae093b)
+
+
 ## This project utilizes several R libraries to perform data preprocessing, analysis, and visualization:
 
 - `dplyr`: Used for data manipulation and transformation.
@@ -17,9 +28,9 @@ This project aims to improve the accuracy of protein-protein interaction (PPI) p
 - `corrplot`: Used for generating correlation matrices to identify relationships between variables.
 - `MASS`: Employed for its statistical tools and data sets which are used in several data analysis techniques.
 
-## Data
 
 ## Data Preprocessing
+
 
 ## Analysis
 

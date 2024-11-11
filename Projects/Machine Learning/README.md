@@ -16,7 +16,7 @@ This project aims to improve the accuracy of protein-protein interaction (PPI) p
 ![image](https://github.com/user-attachments/assets/48547f9c-35d4-49ac-8c5e-2a4a2cae093b)
 
 ## Data
-Data contains more than 65000 protein sequence with 137 features, including the target variable which indicates the amino acid is interface or not. The features include information about each amino acid such as protein ID from Uniplot, protein length, PSSM matrix scores and hydropathy index.
+Data contains more than 65,000 protein sequence with 137 features, including the target variable which indicates the amino acid is interface or not. The features include information about each amino acid such as protein ID from Uniplot, protein length, PSSM matrix scores and hydropathy index.
 
 ## This project utilizes several R libraries to perform data preprocessing, analysis, and visualization:
 
@@ -31,9 +31,12 @@ Data contains more than 65000 protein sequence with 137 features, including the 
 
 
 ## Data Preprocessing
+As suggested from the workflow, we applied undersampling (or downsampling) and oversampling to overcome the class imbalance. Several algorithm techniques have been proposed, there is no clear conclusion suggesting a single best algorithm.
+For oversampling, two widely used methods were considered : Synthetic Minority Over-sampling Technique (SMOTE) and Random oversampling (ROS). With this dataset, ROS might result in an overfitting problem. On the other hand, SMOTE performs well in most of the cases. Undersampling was performed by decreasing the number of majority target instances or samples.
 
-
-## Analysis
+## Feature Selecion 
+### Data Analytical Approach
+1. Linear Discriminant Analysis (LDA)
 
 
 ## Conclusion

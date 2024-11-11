@@ -36,7 +36,10 @@ For oversampling, two widely used methods were considered : Synthetic Minority O
 
 ## Feature Selecion 
 ### Data Analytical Approach
-1. Linear Discriminant Analysis (LDA)
+1. Linear Discriminant Analysis (LDA) : a supervised learning method to find a linear combination of features that best separates two or more classes of objects. As features with high absolute coefficients in the
+ linear combination by the trained model are more important in separating the classes, important features can be selected based on their coefficients. The features with top 25% absolute coefficient values were selected.
+2. LASSO :  a classification algorithm which uses the L1 regularization to constrain the sum of absolute model parameter values to be less than an upper bound. It penalizes regression variable coefficients,
+ shrinking some to zero, and selects only those with non-zero coefficients during the feature selection process. The coefficients of features are sorted in descending order and we chose 35 features to make the number of features comparable with biological approach and other models.
 
 
 ## Conclusion

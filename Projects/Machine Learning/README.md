@@ -18,7 +18,7 @@ This project aims to improve the accuracy of protein-protein interaction (PPI) p
 ## Data
 Data contains more than 65,000 protein sequence with 137 features, including the target variable which indicates the amino acid is interface or not. The features include information about each amino acid such as protein ID from Uniplot, protein length, PSSM matrix scores and hydropathy index.
 
-## This project utilizes several R libraries to perform data preprocessing, analysis, and visualization:
+### This project utilizes several R libraries to perform data preprocessing, analysis, and visualization:
 
 - `dplyr`: Used for data manipulation and transformation.
 - `faux`: Employed for generating simulated datasets (if applicable).
@@ -40,7 +40,15 @@ For oversampling, two widely used methods were considered : Synthetic Minority O
  linear combination by the trained model are more important in separating the classes, important features can be selected based on their coefficients. The features with top 25% absolute coefficient values were selected.
 2. LASSO :  a classification algorithm which uses the L1 regularization to constrain the sum of absolute model parameter values to be less than an upper bound. It penalizes regression variable coefficients,
  shrinking some to zero, and selects only those with non-zero coefficients during the feature selection process. The coefficients of features are sorted in descending order and we chose 35 features to make the number of features comparable with biological approach and other models.
+3. Elastic Net : a regularized regression method which overcomes the limitations of LASSO combining LASSO and ridge regression methods linearly. The elastic net method introduces a hyperparameter that controls the balance between the L1 and L2 regularization terms, allowing the model to be tuned to the specific dataset. Same approach to choose the lambda and the number of features were applied as the LASSO method.
+4. Correlation : Correlation describes how close two variables are linearly related with each other. Highly correlated features are linearly dependent and would have the same effect on the target variable. The features were converted to a correlation matrix and the pairwise correlation between all features was calculated. For a correlation cutoff value, 0.75 was employed because it is generally considered a strong correlation. Highly correlated features with greater than 0.75 were removed.
+5. Combining methods : To yield a more powerful feature list, we combined three individual methods, LDA, LASSO, and Elastic net. By combining different methods, we might take advantage of the strengths of each method while
+ mitigating their weaknesses. Based on the AUC scores of each method, the weights were multiplied to the coefficients of each method and summed. The weights were applied differently based on each AUC score depending on resampling methods (Table ?.). For the undersampling dataset, the weights were 0.3, 0.35, and 0.35 for LDA, LASSO, Elastic net respectively. For an oversampling dataset, the weights were equally set, 0.33.
 
+## Models
+Six models (3 baseline models and 3 advanced models) are chosen for this project as they are all famous for performing classification tasks. The baseline models are logistic regression, KNN, and decision tree, while random forest serves as one of the advanced models and is expected to give the best accuracy. As the state-of-art models, we attempted to build two deep learning models, multilayer perceptron and transformer. Due to the lack of computational resources, we applied only combined features to those models, which is considered to reflect reasonable selection from overall feature selection methods.
+
+## Results
 
 ## Conclusion
 

@@ -1,6 +1,6 @@
 ## Overview
 
----
+
 
 This document outlines the tools and technologies I utilized during a master’s research project with Neogene Therapeutics. Specific details about the project's nature, data, and outcomes are confidential. The science underlying Neogene’s approach for T cell receptor therapy is introduced in the following page.
 
@@ -8,7 +8,7 @@ https://www.astrazeneca.nl/in-Nederland/Amsterdam.html
 
 ## Research Goal
 
----
+
 
 - The research goal was to investigate if neoantigen-reactive T cell receptors (TCRs) can be predicted using gene signatures derived from RNA sequence data. To do this,
     - I evaluated the published gene sets (referenced below) for tumor-reactive T cell Receptors (CD4 and CD8 T cells) on in-house dataset.
@@ -18,7 +18,7 @@ https://www.astrazeneca.nl/in-Nederland/Amsterdam.html
 
 ## Technologies Used
 
----
+
 
 **Programming Languages**
 
@@ -44,7 +44,7 @@ https://www.astrazeneca.nl/in-Nederland/Amsterdam.html
 
 ## **Skills Developed**
 
----
+
 
 - Enhanced proficiency in single-cell RNA sequence data analysis. Specifically in
     - Data preprocessing
@@ -58,7 +58,7 @@ https://www.astrazeneca.nl/in-Nederland/Amsterdam.html
 
 ## **Code Samples and Resources**
 
----
+
 
 Due to the confidentiality of the project, direct code snippets cannot be shared. However, the techniques and libraries mentioned were pivotal in achieving the project's goals. Techniques included clustering algorithms, gene set enrichment analysis, dimension reduction, and differential gene expression analysis, each tailored to the specific needs of the project. Throughout the research projects, I utilized reputable online resources, including:
 
@@ -67,4 +67,3 @@ Due to the confidentiality of the project, direct code snippets cannot be shared
 
 https://github.com/hbctraining/scRNA-seq_online/blob/master/README.md
 
--

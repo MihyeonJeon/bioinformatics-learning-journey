@@ -1,0 +1,702 @@
+---
+title: "ML_DA_Feature_selection"
+author: "Mihyeon Jeon"
+date: "2023-02-27"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Overview
+
+This project explores feature selection techniques for classifying protein-protein interaction (PPI) residues using machine learning. The dataset includes structural and sequence-based features, and the target variable indicates whether a residue is part of an interaction interface.
+
+The analysis includes:
+- Data preprocessing
+- Exploratory data analysis (EDA)
+- Correlation analysis
+- Feature selection using statistical and ML methods
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(tinytex.verbose=T)
+```
+
+```{r message=FALSE}
+library(dplyr)
+library(faux)
+library(DataExplorer)
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(ggfortify)
+library(corrplot)
+library(MASS)
+library(imbalance)
+library(caTools)
+library(knitr)
+library(tree)
+library(randomForest)
+library(ROCR)
+library(DMwR2)
+library(pROC)
+library(caret)
+library(glmnet)
+```
+
+## Dataset
+```{r load PPI dataset}
+PPI_data = read.csv("ppi.csv")
+```
+
+```{r}
+# Convert target to factor
+PPI_data$p_interface <- as.factor(PPI_data$p_interface)
+
+# Remove non-informative or text-based columns (keep target)
+ PPI_data_wt <- PPI_data %>% select(PPI_data, -X, -uniprot_id, -aa_ProtPosition, -domain, -sequence, -Rlength)
+
+# Create input-only dataset (drop target)
+PPI_data_nt <- PPI_data_wt %>% select(-p_interface)
+
+```
+
+The variable 'Rlength' has too large values compared to other variables. We can use the variable 'normalized length'.
+
+
+## Exploratory Data Analysis
+
+```{r preview data}
+head(PPI_data_nt)
+```
+
+```{r}
+plot_intro(PPI_data_nt)
+```
+
+```{r correlation full dataset}
+# Check correlation matrix for numeric variables
+numeric_vars <- PPI_data_nt %>% select(where(is.numeric))
+cor_matrix <- cor(numeric_vars)
+corrplot(cor_matrix, method = "color", tl.cex = 0.5)
+```
+
+```{r}
+ggplot(data = PPI_data_wt, aes(p_interface))+ labs(x="interface") + geom_bar(fill="steelblue") + geom_text(stat='count', aes(label=after_stat(count)), vjust=1.5)
+
+ggplot(data = PPI_data, aes(fill=p_interface, sequence)) + geom_bar(position='stack', stat='count')
+```
+
+There is a class imbalance and we can see the approximate ratio in each residue.
+
+### Distribution
+
+```{r}
+# Create a density plot
+plot(density(PPI_data_nt[,3]), main="Density Plot")
+
+```
+
+### 1. Data split for Train/Test
+
+```{r}
+# Train : Test = 7 : 3 
+sample <- sample.split(PPI_data_wt$p_interface, SplitRatio = 0.7) 
+train <- subset(PPI_data_wt, sample == TRUE) 
+test <- subset(PPI_data_wt, sample == FALSE) 
+
+train_x <- train[,1:131]
+train_y <- train[,132]
+test_x <- test[,1:131] 
+test_y <- test[,132]
+```
+
+```{r}
+ggplot(data = train, aes(p_interface))+ labs(x="interface") + geom_bar(fill="steelblue") + geom_text(stat='count', aes(label=after_stat(count)), vjust=1.5)
+```
+
+### 2. Downsampling
+
+```{r}
+downsample_PPI <- downSample(x = train_x,y = train_y, yname="p_interface")
+dim(downsample_PPI)
+
+train_x <- downsample_PPI[,1:131] 
+train_y <- downsample_PPI[,132] 
+```
+
+```{r}
+ggplot(data = downsample_PPI, aes(p_interface))+ labs(x="interface") + geom_bar(fill="steelblue") + geom_text(stat='count', aes(label=after_stat(count)), vjust=1.5)
+```
+
+### 3. Oversampling
+
+```{r}
+X <- train[, setdiff(names(train), "p_interface")]
+y <- as.factor(train$p_interface)
+
+# Apply SMOTE
+oversampled_PPI <- SMOTE(X, y, K = 5, dup_size = 6.30407865)
+
+dim(oversampled_PPI)
+sum(oversampled_PPI$p_interface==0)
+sum(oversampled_PPI$p_interface==1)
+
+train_x <- oversampled_PPI[,1:131] 
+train_y <- oversampled_PPI[,132] 
+
+```
+
+```{r}
+ggplot(data = oversampled_PPI, aes(p_interface))+ labs(x="interface") + geom_bar(fill="steelblue") + geom_text(stat='count', aes(label=after_stat(count)), vjust=1.5)
+```
+
+### 4. Normalization
+
+```{r}
+# Calculate mean and sd of train data
+train_mean <- apply(train_x,2,mean)
+train_sd <- apply(train_x,2,sd)
+```
+
+```{r}
+df <- data.frame(train_mean, train_sd)
+df$features <- colnames(train_x)
+p<-ggplot(df, aes(x=features, y=train_mean)) + 
+  geom_point()+
+  geom_errorbar(aes(ymin=train_mean-train_sd, ymax=train_mean+train_sd), width=.2,
+                position=position_dodge(0.05))
+p
+```
+
+```{r}
+plot(train_mean,train_sd)
+
+```
+
+```{r normalization}
+# train data 
+norm_train_x <- train_x 
+norm_train_x <- sweep(norm_train_x,2,train_mean,FUN = '-') 
+norm_train_x <- sweep(norm_train_x, 2, train_sd, FUN = '/') 
+norm_train_y <- train_y 
+
+# test data (apply same mean and sd) 
+norm_test_x <- test_x 
+norm_test_x <- sweep(norm_test_x,2,train_mean,FUN = '-') 
+norm_test_x <- sweep(norm_test_x, 2, train_sd, FUN = '/') 
+norm_test_y <- test_y
+```
+
+## 1. PCA
+
+```{r}
+#Scaled
+PPI_PCA <- prcomp(PPI_data_nt, center = TRUE, scale. = TRUE)
+autoplot(PPI_PCA, data = PPI_data_wt, colour = 'p_interface',loadings = TRUE)
+```
+
+```{r}
+PPI_PCA <- prcomp(PPI_data_nt, scale. = FALSE, center = FALSE)
+autoplot(PPI_PCA, data = PPI_data_wt, colour = 'p_interface',loadings = TRUE)
+```
+
+```{r}
+plot(sort(PPI_PCA$rotation[,1])[1:35])
+```
+
+## 2. LDA
+
+```{r}
+norm_train <- data.frame(norm_train_x)
+norm_train$p_interface <- norm_train_y
+
+norm_test <- data.frame(norm_test_x)
+norm_test$p_interface <- norm_test_y
+
+# LDA model
+n_model_lda <- lda(norm_train_y~., data=norm_train)
+n_predicted_lda <- predict(n_model_lda, norm_test)
+auc <- roc(test_y, as.numeric(n_predicted_lda$class))
+auc$auc
+
+# Confusion matrix
+confusionMatrix(n_predicted_lda$class, norm_test$norm_test_y)
+
+```
+
+```{r}
+plot(n_model_lda$scaling, main = "Coefficients of LDA with normalized data")
+```
+
+```{r}
+max(n_model_lda$scaling)
+```
+
+```{r}
+# Summary of coefficients
+summary(sort(abs(n_model_lda$scaling),decreasing = TRUE))
+```
+
+```{r}
+# features with top 25% coefficients
+names(train)[which(abs(n_model_lda$scaling)>=0.123947)]
+```
+
+## RF
+
+1.  Normalized data
+
+```{r}
+set.seed(38)
+norm_rf_PPI = randomForest(p_interface ~ ., data=norm_train, importance=TRUE)
+
+yhat_norm_rf = predict(norm_rf_PPI, norm_test, type="class")
+confusionMatrix(yhat_norm_rf, norm_test$p_interface)
+
+
+varImpPlot(norm_rf_PPI, scale=FALSE, n.var=10)
+```
+
+```{r}
+importance(norm_rf_PPI)
+varImp(norm_rf_PPI)
+```
+
+```{r}
+library(ROCR)
+
+norm_pred=predict(norm_rf_PPI,type = "prob")
+norm_perf = prediction(norm_pred[,2], norm_test$p_interface)
+# 1. Area under curve
+norm_auc = performance(norm_perf, "auc")
+norm_auc
+# 2. True Positive and Negative Rate
+norm_pred2 = performance(perf, "tpr","fpr")
+# 3. Plot the ROC curve
+plot(norm_pred2,main="ROC Curve for Random Forest with Normalized data",col=2,lwd=2)
+abline(a=0,b=1,lwd=2,lty=2,col="gray")
+```
+
+## 3. Recursive
+
+```{r}
+
+# Define the outcome variable
+outcome <- "p_interface"
+
+# Define the model
+recursive_model <- train(as.formula(paste(outcome, "~ .")), 
+               data = train, 
+               method = "rf")
+
+# Perform recursive feature elimination
+set.seed(123)
+rfe_model <- rfe(x = train[, -which(names(train) == outcome)], 
+                 y = train[, outcome], 
+                 sizes = c(1:4), 
+                 rfeControl = rfeControl(method = "cv", number = 10))
+
+# Print the results
+print(rfe_model)
+plot(rec_model)
+```
+
+```{r}
+library(strucchange)
+rec_model<- recresid(train_x, train_y)
+```
+
+```{r}
+library(leaps)
+
+# Load data
+x <- train[,1:131]
+y <- train[,132]
+
+# Perform recursive feature elimination
+fit <- regsubsets(x, y, method = "exhaustive", really.big = TRUE)
+summary(fit)
+
+# Plot RSS versus number of variables
+plot(fit$which, fit$rss, type = "b", xlab = "Number of variables", ylab = "RSS")
+
+# Select best model with three variables
+best.model <- which.min(fit$rss[1:3])
+coef(fit, best.model)
+
+```
+
+## 4. Lasso
+
+-   Normalized
+
+```{r}
+n_lasso_x <- as.matrix(norm_train_x) 
+n_lasso_y <- as.matrix(as.numeric(norm_train_y)) 
+
+# Print cross-validated mean squared error for different values of lambda 
+
+n_cv_lasso <- cv.glmnet(n_lasso_x, n_lasso_y, alpha = 1, family = 'binomial') 
+print(n_cv_lasso$lambda.min) 
+print(n_cv_lasso$cvm[n_cv_lasso$lambda == n_cv_lasso$lambda.min])
+```
+
+```{r}
+coef(n_cv_lasso)
+```
+
+```{r}
+# Plot coefficient paths for different values of lambda 
+plot(n_cv_lasso, xvar = "lambda", label = TRUE) 
+
+# Extract important features 
+norm_lasso_coef <- coef(n_cv_lasso, s = n_cv_lasso$lambda.min)
+norm_lasso_coef
+important.features <-norm_lasso_coef[norm_lasso_coef != 0] 
+print(important.features)
+```
+
+```{r}
+# Feature ~35
+norm_lasso_coef_df <- data.frame(c(colnames(train_x)), norm_lasso_coef[2:132,])
+colnames(norm_lasso_coef_df) <- c('features','coefficient')
+
+cat(norm_lasso_coef_df[order(abs(norm_lasso_coef_df$coefficient), decreasing = TRUE), ][1:35,1])
+```
+
+```{r}
+plot(n_cv_lasso)
+```
+
+```{r}
+lamda_best <- n_cv_lasso$lambda.min 
+# Predict 
+n_lasso_test_x <- as.matrix(norm_test_x)
+n_lasso_test_y <- as.matrix(as.numeric(norm_test_y))
+
+n_predicted_lasso <- predict(n_cv_lasso, s = lamda_best, newx = n_lasso_test_x, type = "class")
+n_predicted_lasso <- ifelse(n_predicted_lasso == 1, 0, 1)
+# eval_results(n_lasso_test_y, predictions_test, df)
+```
+
+```{r}
+hist(as.numeric(n_predicted_lasso))
+```
+
+```{r}
+# library(pROC)
+n_auc <- roc(test_y, n_predicted_lasso)
+n_auc$auc #
+```
+
+## 5. Elastic net
+
+```{r}
+n_lasso_x <- as.matrix(norm_train_x) 
+n_lasso_y <- as.matrix(as.numeric(norm_train_y)) 
+
+
+# enmod <- glmnet(n_lasso_x, n_lasso_y, nfolds=10, alpha=0.3, lambda=seq(1, 10, by=1), standardize=FALSE)
+
+# Fit an elastic net model using cross-validation
+n_en_model <- cv.glmnet(n_lasso_x, n_lasso_y, alpha = 0.5, familiy = "binomial")
+
+# View the cross-validation results
+plot(n_en_model)
+
+# Choose the optimal value of lambda based on cross-validation
+lambda_opt <- n_en_model$lambda.min
+
+n_lasso_test_y <- as.matrix(as.numeric(norm_test_y))
+n_lasso_test_x <- as.matrix(norm_test_x)
+
+# Extract the coefficients of the final model
+n_coef_final <- coef(n_en_model)
+
+# Identify the non-zero coefficients (i.e., important features)
+important_features <- which(n_coef_final[-1,] != 0)
+
+# Features ~ 35
+
+n_el_coeff <- data.frame(colnames(train_x)[important_features],n_coef_final[important_features])
+
+colnames(n_el_coeff) <- c('features','coefficient')
+
+cat(n_el_coeff[order(abs(n_el_coeff$coefficient), decreasing = TRUE), ][1:35,1])
+```
+
+```{r}
+# Predict on the test set
+n_predicted_en <- predict(n_en_model, newx = n_lasso_test_x, s=lambda_opt, type = "class")
+# n_predicted_en <- ifelse(n_predicted_en >= 0.5, 1, 0)
+
+n_en_auc <- roc(test_y, n_predicted_en)
+n_en_auc$auc
+```
+
+## **6. Correlation**
+
+```{r}
+cor_matrix <- cor(train_x) 
+
+corrplot(cor_matrix, type = "upper", order ="hclust", tl.col = "black", tl.srt = 45) 
+# correlationMatrix <- cor(PPI_data_nt)
+```
+
+```{r}
+#find attributes that ar highly corrected (ideally >0.75) 
+highlyCorrelated <- findCorrelation(cor_matrix, cutoff=0.75) 
+
+# print indexes of highly correlated attributes 
+cat(colnames(PPI_data_nt)[highlyCorrelated])
+
+```
+
+```{r}
+corr_new <- train_x[, -highlyCorrelated]
+cat(colnames(corr_new))
+```
+
+```{r}
+n_cor_matrix <- cor(norm_train_x) 
+
+#find attributes that ar highly corrected (ideally >0.75) 
+highlyCorrelated <- findCorrelation(n_cor_matrix, cutoff=0.75) 
+
+# print indexes of highly correlated attributes 
+# colnames(PPI_data_nt)[highlyCorrelated]
+
+n_corr_new <- train_x[, -highlyCorrelated]
+cat(colnames(n_corr_new))
+```
+
+## 7. Combine (Majority / Weighted)
+
+```{r}
+# # Perform LDA
+# lda_model <- lda(data, outcome)
+lda_coef <- coef(model_lda)
+# 
+# # Perform Lasso regression
+# lasso_model <- cv.glmnet(data, outcome, alpha=1)
+lasso_coef <- coef(cv_lasso, s=cv_lasso$lambda.min)
+# 
+# # Perform elastic net
+# elastic_model <- cv.glmnet(data, outcome, alpha=0.5)
+elastic_coef <- coef(cv_en, s=cv_en$lambda.min)
+
+
+
+# Set weights for each method
+lda_weight <- 0.333
+lasso_weight <- 0.333
+elastic_weight <- 0.333
+
+# Combine coefficients with weights
+weighted_coef <- data.frame(lda_coef[,1]*lda_weight, lasso_coef[-1]*lasso_weight, elastic_coef[-1]*elastic_weight)
+colnames(weighted_coef) <- c("lda", "lasso", "elastic")
+
+# Calculate weighted average coefficient values
+
+```
+
+```{r}
+# Combine models with weights
+library(caretEnsemble)
+library(caret)
+
+modelList <- methodList(lda = model_lda, lasso = cv_lasso, elasticNet = cv_en)
+weightList <- c(lda = 0.33, lasso = 0.33, elasticNet = 0.33)
+ensembleModel <- caretEnsemble(models = modelList, weights = weightList,
+                                metric = "Accuracy", trControl = trainControl(method = "cv"))
+
+# methodList <- list(model_lda, cv_lasso, cv_en)
+
+lda_coef <- coef(model_lda)
+lasso_coef <- coef(cv_lasso, s=cv_lasso$lambda.min)
+elastic_coef <- coef(cv_en, s=cv_en$lambda.min)
+
+# Multiply coefficients with corresponding model weights
+ldaCoefficientsWeighted <- lda_coef * weightList["lda"]
+lassoCoefficientsWeighted <- lasso_coef * weightList["lasso"]
+elasticNetCoefficientsWeighted <- elastic_coef * weightList["elasticNet"]
+
+# Combine weighted coefficients and rank features by absolute value
+featureImportance <- data.frame(feature = colnames(train_x), 
+                                importance = abs(ldaCoefficientsWeighted) + 
+                                  abs(lassoCoefficientsWeighted) + 
+                                  abs(elasticNetCoefficientsWeighted))
+featureImportance <- featureImportance[order(featureImportance$importance, decreasing = TRUE),]
+
+# Select top features
+topFeatures <- featureImportance$feature[1:35]
+```
+
+```{r}
+
+
+# Extract coefficients from each model
+lda_coef <- coef(model_lda)
+lasso_coef <- coef(cv_lasso, s=cv_lasso$lambda.min)
+elastic_coef <- coef(cv_en, s=cv_en$lambda.min)
+
+# Multiply coefficients with corresponding model weights
+ldaCoefficientsWeighted <- lda_coef * 0.3
+lassoCoefficientsWeighted <- lasso_coef[2:132] * 0.35
+elasticNetCoefficientsWeighted <- elastic_coef[2:132] * 0.35
+
+# Combine weighted coefficients
+combinedCoefficients <- ldaCoefficientsWeighted + lassoCoefficientsWeighted + elasticNetCoefficientsWeighted
+
+# Train models on the same dataset
+ldaPred <- predict(model_lda, newdata = train)
+lassoPred <- predict(cv_lasso, lasso_x)
+enPred <- predict(cv_en,lasso_x)
+
+# Blend model predictions using weighted averaging
+ensemblePred <- ldaPred * 0.33 + lassoPred * 0.33 + enPred * 0.33
+
+# Create blended model
+blendedModel <- glm(p_interface ~ ensemblePred, data = train, family = "binomial")
+
+# Extract feature importance from blended model
+featureImportance <- varImp(blendedModel)
+
+# Select top features
+topFeatures <- row.names(featureImportance)[1:3]
+
+```
+
+```{<- apply(weighted_coef, 1, sum)}
+
+# Select features with nonzero weighted average coefficients
+selected_features <- names(weighted_avg_coef[weighted_avg_coef!=0])
+
+# Subset data with selected features
+selected_data <- train_x[,selected_features]
+
+cat(colnames(selected_data))
+```
+
+```{r}
+# cat(n_el_coeff[order(abs(n_el_coeff$coefficient), decreasing = TRUE), ][1:35,1])
+combinedCoefficients
+```
+
+```{r}
+c <- combinedCoefficients[order(abs(combinedCoefficients), decreasing = TRUE), ][1:35]
+
+c <- data.frame(c)
+
+cat(rownames(c))
+```
+
+## 8. Evaluation
+
+```{r}
+
+# ORIGINAL dataset
+# train_x
+# train_y
+# test_x
+# test_y
+# 
+# *lasso*
+# lasso_x
+# lasso_y
+# lasso_test_x
+# lasso_test_y
+
+# * Model *
+# LDA : model_lda
+# Lasso : cv_lasso, n_cv_lasso
+# Elastic net : en_fit, n_en_model
+
+# Prediction
+
+# LDA : predicted_lda
+# Lasso : predictions_test
+# Elastic net : y_pred
+
+# Evaluate the performance of the model
+confusion_matrix <- table(predictions, test$Species)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+# Print the performance metrics
+cat("Accuracy: ", accuracy, "\n")
+cat("Precision: ", precision, "\n")
+cat("Recall: ", recall, "\n")
+cat("F1-Score: ", f1_score, "\n")
+```
+
+```{r}
+
+# Evaluate the performance of the LDA model
+lda_confusion_matrix <- table(predicted_lda$class, test_y)
+lda_accuracy <- sum(diag(lda_confusion_matrix)) / sum(lda_confusion_matrix)
+lda_precision <- lda_confusion_matrix[2, 2] / sum(lda_confusion_matrix[, 2])
+lda_recall <- lda_confusion_matrix[2, 2] / sum(lda_confusion_matrix[2, ])
+lda_f1_score <- 2 * (lda_precision * lda_recall) / (lda_precision + lda_recall)
+```
+
+```{r}
+lda_accuracy
+lda_precision
+lda_recall
+lda_f1_score
+```
+
+```{r}
+# Make predictions on the testing set using the Lasso model
+# lasso_predictions <- predict(lasso_model, newx = as.matrix(test[, -5]), s = "lambda.min", type = "class")
+
+
+# LDA : predicted_lda
+# Lasso : predicted_lasso, n_predicted_lasso
+# Elastic net : predicted_en, n_predicted_en
+
+# Evaluate the performance of the Lasso model
+lasso_confusion_matrix <- table(predicted_lasso, test_y)
+lasso_accuracy <- sum(diag(lasso_confusion_matrix)) / sum(lasso_confusion_matrix)
+lasso_precision <- lasso_confusion_matrix[2, 2] / sum(lasso_confusion_matrix[, 2])
+lasso_recall <- lasso_confusion_matrix[2, 2] / sum(lasso_confusion_matrix[2, ])
+lasso_f1_score <- 2 * (lasso_precision * lasso_recall) / (lasso_precision + lasso_recall)
+
+# Fit the Elastic net classification model
+# elasticnet_model <- glmnet(x = as.matrix(train[, -5]), y = train$Species, alpha = 0.5, family = "binomial")
+
+# Make predictions on the testing set using the Elastic net model
+# elasticnet_predictions <- predict(elasticnet_model, newx = as.matrix(test[, -5]), s = "lambda.min", type = "class")
+
+# Evaluate the performance of the Elastic net model
+elasticnet_confusion_matrix <- table(predicted_en$class, test$Species)
+elasticnet_accuracy <- sum(diag(elasticnet_confusion_matrix)) / sum(elasticnet_confusion_matrix)
+elasticnet_precision <- elasticnet_confusion_matrix[2, 2] / sum(elasticnet_confusion_matrix[, 2])
+elasticnet_recall <- elasticnet_confusion_matrix[2, 2] / sum(elasticnet_confusion_matrix[2, ])
+elasticnet_f1_score <- 2 * (elasticnet_precision * elasticnet_recall) / (elasticnet_precision + elasticnet_recall)
+
+# Fit the LDA model
+# lda_model <- lda(Species ~ ., data = train)
+
+# Make predictions on the testing set using the LDA model
+# lda_predictions <- predict(lda_model, newdata = test[, -5])
+
+# Evaluate the performance of the LDA model
+lda_confusion_matrix <- table(predicted_lda$class, test$Species)
+lda_accuracy <- sum(diag(lda_confusion_matrix)) / sum(lda_confusion_matrix)
+lda_precision <- lda_confusion_matrix[2, 2] / sum(lda_confusion_matrix[, 2])
+lda_recall <- lda_confusion_matrix[2, 2] / sum(lda_confusion_matrix[2, ])
+lda_f1_score <- 2 * (lda_precision * lda_recall) / (lda_precision + lda_recall)
+
+```
+
+```{r}
+lasso_confusion_matrix
+```
